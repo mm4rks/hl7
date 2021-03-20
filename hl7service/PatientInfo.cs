@@ -24,13 +24,13 @@ namespace hl7service
 	public class PatientInfo
 	{
 		public string connectionString;
-		
+
 		// SQL Patient info
-		
+
 		//public string table = string.Empty;
 
 		// HL7 v2 Patient info
-		
+
 		protected string PATIENT_ID = "PID";
 		protected string FIELD_SEPARATOR = "|";
 
@@ -44,45 +44,45 @@ namespace hl7service
 			"SSNNumber","DriversLicenseNumber","MothersIdentifier","EthnicGroup","BirthPlace",
 			"MultipleBirthIndicator","BirthOrder","Citizenship","VeteransMilitaryStatus",
 			"Nationality","PatientDeathDateTime","PatientDeathIndicator" };
-		
+
 		protected StringDictionary hl7v3 = new StringDictionary();
-		
+
 		protected string [] hl7v3Keys = new string [] {
 			"classCode", "determinerCode", "id", "given", "family", "administrativeGenderCode", "birthTime",
 			"deceasedInd", "deceasedTime", "multipleBirthInd", "multipleBirthOrderNumber", "organDonorInd",
 			"maritalStatusCode", "educationLevelCode", "disabilityCode", "livingArrangementCode",
-			"religiousAffiliationCode",	"raceCode", "ethnicGroupCode"};						
-		
+			"religiousAffiliationCode",	"raceCode", "ethnicGroupCode"};
+
 		protected string [] field_keys = new string [] {
 			"Field1","Field2","Field3","Field4","Field5","Field6","Field7","Field8","Field9","Field10" };
 
 		protected string [] optional_keys = new string [] {
 			"Optional1","Optional2","Optional3","Optional4","Optional5","Optional6","Optional7","Optional8","Optional9","Optional10" };
-				
+
 		public PatientInfo()
 		{
 			SQLServerInfo sqlInfo = new SQLServerInfo();
-			
+
 			this.connectionString = sqlInfo.connectionString;
-			
+
 			hl7v2.Clear();
 		}
-		
+
 		public bool fromHL7v2toSQL(string text)
 		{
 			// Parse HL7 v2 Message
-			
+
 			// search for PID field
 			int first = text.IndexOf(PATIENT_ID);
-			
+
 			if (first != -1)
 			{
 				hl7v2.Clear();
-				
+
 				// Read patient info
-				
+
 				string [] hl7 = text.Substring(first).Split(new Char [] {'|'});
-				
+
 				for (int index = 0; index < hl7v2Keys.Length; index++)
 				{
 					hl7v2.Add(hl7v2Keys[index], hl7[index]);
@@ -93,24 +93,24 @@ namespace hl7service
 				// It must have a PATIENT_ID
 				return false;
 			}
-			
+
 			// Now convert it to SQL
 			StringDictionary sql = new StringDictionary();
-					
+
 			sql.Add("Tipo","2");
-			
+
 			sql.Add("Referencia", "NULL");
 
 			// Calculem quins seran els camps Nombre1, Apellido1 i Apellido2
-			
+
 			string fullName = hl7v2["PatientName"];
-			
+
 			// separem per ^. Primer ve el 1r cognom i després el nom.
 			string [] split = fullName.Split(new Char [] {'^'});
-			
+
 			sql.Add("Apellido1", split[0]);
 			sql.Add("Apellido2", "NULL");
-			
+
 			if (hl7v2.ContainsKey("MothersMaidenName"))
 			{
 				sql["Apellido2"] = hl7v2["MothersMaidenName"];
@@ -122,8 +122,8 @@ namespace hl7service
 			{
 				sql["Nombre1"] += split[i] + " ";
 			}
-			
-			// Nombre = Apellido1 Apellido2, Nombre1		
+
+			// Nombre = Apellido1 Apellido2, Nombre1
 			if (sql["Apellido2"] != "NULL")
 			{
 				sql.Add("Nombre", sql["Apellido1"] + " " + sql["Apellido2"] + "," + sql["Nombre1"]);
@@ -132,35 +132,35 @@ namespace hl7service
 			{
 				sql.Add("Nombre", sql["Apellido1"] + "," + sql["Nombre1"]);
 			}
-			
+
 			// NHC
 			sql.Add("NHC", "NULL");
 			if (hl7v2.ContainsKey("InternalID"))
 			{
 				sql["NHC"] = hl7v2["InternalID"];
 			}
-			
+
 			// Field fields (not used)
-			
+
 			foreach (string key in field_keys)
 			{
 				sql.Add(key, "NULL");
 			}
-			
+
 			// Alta
-			
+
 			sql.Add("Alta", DateTime.Now.ToString("yyyyMMdd HH:mm"));
-			
+
 			return storeSQL("SCAPersona", sql);
 		}
-		
+
 		string [] getSQLKeys(string table)
 		{
 			string [] sqlKeys_SCAPersona = new string [] {
 				"Tipo","Referencia","Nombre","Nombre1","Apellido1","Apellido2","NHC",
 				"Field1","Field2","Field3","Field4","Field5","Field6","Field7","Field8",
 				"Field9","Field10","Alta" };
-			
+
 			string [] sqlKeys_SCAMuestra = new string [] {
 				"IdPersona", "IdEspecie", "IdCentro", "IdDoctor", "Referencia", "FechaAnalisis",
 				"HoraAnalisis", "Volumen", "FechaObtencion", "HoraObtencion", "HoraEntrega",
@@ -170,43 +170,43 @@ namespace hl7service
 				"Other", "Confirmed", "Optional1", "Optional2", "Optional3", "Optional4",
 				"Optional5", "Optional6", "Optional7", "Optional8", "Optional9", "Optional10",
 				"IdCollection1", "IdCollection2" };
-			
+
 			switch(table)
 			{
 				case "SCAPersona": return sqlKeys_SCAPersona;
 				case "SCAMuestra": return sqlKeys_SCAMuestra;
 			}
-			
+
 			return null;
 		}
-		
+
 		protected bool storeSQL(string table, StringDictionary sql)
 		{
-			// use this if you don't mind which rowid has been assigned to your INSERT statement 
+			// use this if you don't mind which rowid has been assigned to your INSERT statement
 			int lastInsertRowId = -1;
-			
+
 			return storeSQL (table, sql, ref lastInsertRowId);
 		}
-		
+
 		protected bool storeSQL(string table, StringDictionary sql, ref int lastInsertRowId)
 		{
-			// Logger.Debug("PatientInfo connection string: " + this.connectionString);	
-					
+			// Logger.Debug("PatientInfo connection string: " + this.connectionString);
+
 			// Create SQL String
-			
+
 			// SCAPersona
 			// Tipo Referencia Nombre Nombre1 Apellido1 Apellido2 NHC Field1 Field2 Field3 Field4 Field5 Field6 Field7 Field8 Field9 Field10 Alta
-			
+
 			string sqlString = "INSERT INTO " + table + " (";
-			
+
 			string [] sqlKeys = getSQLKeys(table);
-			
+
 			if (sqlKeys == null)
 			{
 				Logger.Debug("SQL Table " + table + "is unknown.");
 				return false;
 			}
-			
+
 			foreach (string key in sqlKeys)
 			{
 				sqlString += key + ", ";
@@ -221,7 +221,7 @@ namespace hl7service
 			{
 				sql["ALTA"] = DateTime.Now.ToString("yyyyMMdd HH:mm");
 			}
-			
+
 			foreach (string key in sqlKeys)
 			{
 				if (sql[key] == "NULL")
@@ -236,19 +236,22 @@ namespace hl7service
 
 			// treu la coma final que s'ha afegit de més.
 			sqlString = sqlString.TrimEnd(new Char [] {' ',','});
-			
+
 			sqlString += ");";
 
 			#if (SQLITE3)
-			string connectionString = "URI=file:/home/karasu/hl7/sca.sqlite3,version=3";
+			Console.WriteLine("SQLITE3 enabled");
+			string connectionString = "URI=file:/tmp/hl7/sca.sqlite3,version=3";
 			SqliteConnection myConnection = new SqliteConnection(connectionString);
 			#else
-			SqlConnection myConnection = new SqlConnection();		
+			Console.WriteLine("SQLITE3 disabled");
+			throw;
+			SqlConnection myConnection = new SqlConnection();
 			myConnection.ConnectionString = this.connectionString;
 			#endif
-			
-			
-			try 
+
+
+			try
 			{
 				myConnection.Open();
 				Logger.Debug("Connected to SQL Server");
@@ -258,13 +261,13 @@ namespace hl7service
 				Logger.Fatal("Error connecting to SQL Server: " + e.ToString());
 				return false;
 			}
-			
+
 			try
 			{
 				string sqlCheck = string.Empty;
 				string sqlCheckField = string.Empty;
 				string sqlCheckId = string.Empty;
-				
+
 				if (table == "SCAPersona" && sql["NHC"] != "NULL")
 				{
 					// Before adding our patient we must check that there is not already in our database.
@@ -281,9 +284,9 @@ namespace hl7service
 					sqlCheck = "SELECT COUNT(*) FROM SCAMuestra WHERE Referencia = '" + sql["Referencia"] + "'";
 					sqlCheckId = "IdMuestra";
 				}
-				
+
 				bool addIt = false;
-				
+
 				if (sqlCheck.Length > 0 && sql[sqlCheckField] != "NULL")
 				{
 					#if (SQLITE3)
@@ -291,16 +294,16 @@ namespace hl7service
 					#else
 					SqlCommand checkCmd = new SqlCommand(sqlCheck, myConnection);
 					#endif
-					
+
 					int num = 0;
-					
+
 					object val = checkCmd.ExecuteScalar();
- 
+
 					if (val != null)
 				    {
 				        num = Convert.ToInt32(val.ToString());
 				    }
-					
+
 					if (num == 0)
 					{
 						// Ok, it does not exist, we can add it.
@@ -309,7 +312,7 @@ namespace hl7service
 					else
 					{
 						Logger.Debug("Row in table " + table + " with " + sqlCheckField + " '" + sql[sqlCheckField] + "' already exists in DB.");
-						
+
 						// we need to know it's id
 						checkCmd.CommandText = "SELECT " + sqlCheckId + " FROM " + table + " WHERE " + sqlCheckField + " = '" + sql[sqlCheckField] + "'";
 						using (IDataReader reader = checkCmd.ExecuteReader())
@@ -318,8 +321,8 @@ namespace hl7service
 							{
 								lastInsertRowId = Convert.ToInt32(reader[0]);
 							}
-						}						
-						
+						}
+
 						addIt = false;
 					}
 				}
@@ -329,7 +332,7 @@ namespace hl7service
 					// Should we check something else here? Or it's ok to risk having duplicates ¿?
 					addIt = true;
 				}
-				
+
 				if (addIt)
 				{
 					#if (SQLITE3)
@@ -342,15 +345,15 @@ namespace hl7service
 
 					// Logger.Debug("SQL Command: " + sqlString);
 					Logger.Debug("Insert done.");
-					
+
 					#if (SQLITE3)
 					myCmd.CommandText = "SELECT last_insert_rowid()";
 					#else
 					myCmd.CommandText = "SELECT @@IDENTITY";
 					#endif
-					
+
 					object val = myCmd.ExecuteScalar();
-					
+
 					if (val != null)
 					{
 						lastInsertRowId = Convert.ToInt32(val.ToString());
@@ -363,9 +366,9 @@ namespace hl7service
 				}
 
 				myConnection.Close();
-				
+
 				Logger.Debug("Connection to SQL Server closed.");
-				
+
 			}
 			catch(Exception e)
 			{
@@ -374,33 +377,33 @@ namespace hl7service
 				Logger.Fatal("INSERT Error: " + e.ToString());
 				return false;
 			}
-			
+
 			// Aquest true no indica que s'ha fet bé la inserció, sinò que no hi ha hagut cap error inesperat amb el SQL.
 			// Si les dades que volíem insertar ja existíen, també retorna true.
 			return true;
 		}
-		
+
 		public bool fromCSVtoSQL(string text, char csv_field_delimiter)
 		{
 			string [] lines = text.Split(new Char [] {'\n'});
-			
+
 			foreach (string line in lines)
 			{
 				if (line.Length > 0)
 				{
 					// Logger.Debug(line);
-	
+
 					// Hem de recòrrer la línia. El caràcter csv_field_delimiter separa els camps
 					// però s'ha de vigilar perquè aquest mateix caràcter pot estar dins d'un string.
-					
+
 					StringDictionary sql = new StringDictionary();
-					
+
 					int i = 0, k = 0;
 					bool insideString = false;
 					string field = string.Empty;
-					
+
 					string [] sqlKeys = getSQLKeys("SCAPersona");
-								
+
 					while (i < line.Length)
 					{
 						if (line[i] == '\"')
@@ -419,7 +422,7 @@ namespace hl7service
 
 						i++;
 					}
-	
+
 					if (storeSQL("SCAPersona", sql) == false)
 					{
 						return false;
@@ -433,45 +436,45 @@ namespace hl7service
 		public bool fromTXTtoSQL(string text)
 		{
 			string [] lines = text.Split(new Char [] {'\n'});
-			
+
 			foreach (string line in lines)
 			{
 				if (line.Length > 0)
 				{
 					// Logger.Debug("Line: " + line);
-					
+
 					// each field is separated by a tab char
 					string [] split = line.Split(new Char [] {'\t'});
-					
+
 					// Convert it to SQL
 					StringDictionary sql = new StringDictionary();
-					
+
 					int keyIndex = 0;
-					
+
 					string [] sqlKeys = getSQLKeys("SCAPersona");
-					
+
 					foreach(string s in split)
 					{
 						sql.Add(sqlKeys[keyIndex++], s);
-					}		
-				
+					}
+
 					if (storeSQL("SCAPersona", sql) == false)
 					{
 						return false;
 					}
 				}
-			}			
+			}
 
 			return true;
 		}
-		
+
 		public bool fromXLStoSQL(string filePath)
 		{
 			Logger.Debug(filePath);
 			FileStream stream = File.Open(filePath, FileMode.Open, FileAccess.Read);
-		
+
 			IExcelDataReader excelReader = null;
-			
+
 			if (filePath.EndsWith("xls"))
 			{
 				Logger.Debug("Reading from a binary Excel file ('97-2003 format; *.xls)");
@@ -485,17 +488,17 @@ namespace hl7service
 			else
 			{
 				// wrong file extension (can't happen, but...)
-			
+
 				stream.Close();
 				return false;
 			}
-			
+
 			while (excelReader != null && excelReader.Read())
 			{
 				int numColumns = excelReader.FieldCount;
-	
+
 				// Logger.Debug("Found " + numColumns + " columns in excel file");
-				
+
 				if (numColumns < 2 || numColumns > 3)
 				{
 					// file format not supported
@@ -503,7 +506,7 @@ namespace hl7service
 					stream.Close();
 					return false;
 				}
-			
+
 				string [] columns = new string [numColumns];
 
 				try
@@ -525,7 +528,7 @@ namespace hl7service
 				string nom = null;
 				string nhc = null;
 				string referencia = null;
-				
+
 				if (numColumns >= 3)
 				{
 					referencia = columns[0];
@@ -537,26 +540,26 @@ namespace hl7service
 					nhc = columns[0];
 					nom = columns[1];
 				}
-								
+
 				if (nom != null && nhc != null)
 				{
 					StringDictionary sql = new StringDictionary();
-						
+
 					setSQLTableDefaults("SCAPersona", ref sql);
 
 					sql.Add("Nombre", nom);
 					sql.Add("Nombre1", nom);
 					sql.Add("NHC", nhc);
-					
+
 					int lastInsertRowId = -1;
-					
+
 					if (storeSQL("SCAPersona", sql, ref lastInsertRowId) == false)
 					{
 						excelReader.Close();
 						stream.Close();
 						return false;
 					}
-					
+
 					if (numColumns >= 3 && referencia != null && lastInsertRowId != -1)
 					{
 						/*
@@ -567,14 +570,14 @@ namespace hl7service
 						Tots els altres camps de SCAMuestra els hauries de posar
 						amb un valor per defecte
 						*/
-						
+
 						sql.Clear();
-	
+
 						setSQLTableDefaults("SCAMuestra", ref sql);
-						
+
 						sql.Add("Referencia", referencia);
 						sql.Add("IdPersona", lastInsertRowId.ToString());
-						
+
 						if (storeSQL("SCAMuestra", sql)  == false)
 						{
 							excelReader.Close();
@@ -589,34 +592,34 @@ namespace hl7service
 				}
 			}
 
-			excelReader.Close();	
+			excelReader.Close();
 			stream.Close();
 
 			return true;
 		}
-		
+
 		public void setSQLTableDefaults(string table, ref StringDictionary sql)
 		{
 			//sql = new StringDictionary();
-			
-			sql.Clear();				
 
-			
+			sql.Clear();
+
+
 			if (table == "SCAPersona")
 			{
 				// Setting SCAPersona defaults
-				
-				sql.Add("Tipo","2");		
+
+				sql.Add("Tipo","2");
 				sql.Add("Referencia", "NULL");
 				sql.Add("Apellido1", "NULL");
 				sql.Add("Apellido2", "NULL");
-				
+
 				// Field fields (not used)
 				foreach (string key in field_keys)
 				{
 					sql.Add(key, "NULL");
 				}
-				
+
 				// Alta
 				sql.Add("Alta", DateTime.Now.ToString ("yyyyMMdd HH:mm"));
 			}
@@ -626,7 +629,7 @@ namespace hl7service
 				string hora = DateTime.Now.ToShortTimeString();
 
 				// Setting SCAMuestra defaults
-				
+
 				sql.Add("IdEspecie", "NULL");
 				sql.Add("IdCentro", "1");
 				sql.Add("IdDoctor", "1");
@@ -653,7 +656,7 @@ namespace hl7service
 				sql.Add("Confirmed", "0");
 				sql.Add("IdCollection1", "1");
 				sql.Add("IdCollection2", "1");
-				
+
 				// Optional fields (not used)
 				foreach (string key in optional_keys)
 				{
@@ -661,18 +664,18 @@ namespace hl7service
 				}
 			}
 		}
-		
+
 		public bool fromHL7v3toSQL(string xml)
 		{
 			XmlTextReader reader = new XmlTextReader(new System.IO.StringReader(xml));
-			
+
 			hl7v3.Clear();
-			
+
 			foreach (string key in hl7v3Keys)
 			{
-				hl7v3.Add(key, "NULL");				
+				hl7v3.Add(key, "NULL");
 			}
-			
+
             while (reader.Read())
             {
 				if (reader.NodeType == XmlNodeType.Element)
@@ -690,29 +693,29 @@ namespace hl7service
 					}
 				}
 			}
-			
+
 			/*
  			"classCode", "determinerCode", "id", "given", "family", "administrativeGenderCode", "birthTime",
 			"deceasedInd", "deceasedTime", "multipleBirthInd", "multipleBirthOrderNumber", "organDonorInd",
 			"maritalStatusCode", "educationLevelCode", "disabilityCode", "livingArrangementCode",
 			"religiousAffiliationCode",	"raceCode", "ethnicGroupCode"};
 			*/
-		
+
 			// Now convert it to SQL
 			StringDictionary sql = new StringDictionary();
-			
+
 			sql.Add("Tipo", "2");
-			
+
 			sql.Add("Referencia", "NULL");
 
 			// Calculem quins seran els camps Nombre1, Apellido1 i Apellido2
-			
+
 			sql.Add("Nombre1", hl7v3["given"]);
-			
+
 			sql.Add("Apellido1", hl7v3["family"]);
 			sql.Add("Apellido2", "NULL");
-			
-			// Nombre = Apellido1 Apellido2, Nombre1		
+
+			// Nombre = Apellido1 Apellido2, Nombre1
 			if (sql["Apellido2"] != "NULL")
 			{
 				sql.Add("Nombre", sql["Apellido1"] + " " + sql["Apellido2"] + "," + sql["Nombre1"]);
@@ -721,26 +724,26 @@ namespace hl7service
 			{
 				sql.Add("Nombre", sql["Apellido1"] + "," + sql["Nombre1"]);
 			}
-			
+
 			// NHC
-			
+
 			sql.Add("NHC", "NULL");
 			if (hl7v3.ContainsKey("id"))
 			{
 				sql["NHC"] = hl7v3["id"];
 			}
-			
+
 			// Field fields (not used)
-			
+
 			foreach (string key in field_keys)
 			{
 				sql.Add(key, "NULL");
 			}
-			
+
 			// Alta
-			
+
 			sql.Add("Alta", DateTime.Now.ToString("yyyyMMdd HH:mm"));
-			
+
 			return storeSQL("SCAPersona", sql);
 		}
 	}
